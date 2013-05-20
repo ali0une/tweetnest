@@ -42,9 +42,6 @@
 	}
 	
 	// Define import routines
-	//favorites
-	@include('./loadfavorites');
-	//personal tweets
 	function totalTweets($p){
 		global $twitterApi;
 		$p = trim($p);
@@ -54,6 +51,8 @@
 		return $data->statuses_count;
 	}
 	
+
+	//personal tweets
 	function importTweets($p){
 		global $twitterApi, $db, $config, $access, $search;
 		$p = trim($p);
@@ -157,46 +156,12 @@
 		} else {
 			echo l(bad("Nothing to insert.\n"));
 		}
-#		@include('./loadfavorites.php');
-		// Checking personal favorites -- scanning all
-		echo l("\n<strong>Syncing favourites...</strong>\n");
-		// Resetting these
-		$favs  = array(); $maxID = 0; $sinceID = 0; $page = 1;
-		do {
-			$path = "1/favorites.json?" . $p . "&count=" . $maxCount . ($maxID ? "&max_id=" . $maxID : "");
-			echo l("Retrieving page <strong>#" . $page . "</strong>: <span class=\"address\">" . ls($path) . "</span>\n");
-			$data = $twitterApi->query($path);
-			if(is_array($data) && $data[0] === false){ dieout(l(bad("Error: " . $data[1] . "/" . $data[2]))); }
-			echo l("<strong>" . ($data ? count($data) : 0) . "</strong> total favorite tweets on this page\n");
-			if(!empty($data)){
-				echo l("<ul>");
-				foreach($data as $i => $tweet){
-					if(!IS64BIT && $i == 0 && $maxID == $tweet->id_str){ unset($data[0]); continue; }
-					if($tweet->user->id_str == $uid){
-						echo l("<li>" . $tweet->id_str . " " . $tweet->created_at . "</li>\n");
-						$favs[] = $tweet->id_str;
-					}
-					$maxID = $tweet->id_str;
-					if(IS64BIT){
-						$maxID = (int)$tweet->id - 1;
-					}
-				}
-				echo l("</ul>");
-			}
-			echo l("<strong>" . count($favs) . "</strong> favorite own tweets so far\n");
-			$page++;
-		} while(!empty($data));
-		
-		// Blank all favorites
-		$db->query("UPDATE `".DTP."tweets` SET `favorite` = '0'");
-		// Insert favorites into DB
-		$db->query("UPDATE `".DTP."tweets` SET `favorite` = '1' WHERE `tweetid` IN ('" . implode("', '", $favs) . "')");
-		echo l(good("Updated favorites!"));
+		@include('./loadfavorites.php');
+
 	}
-	
+
 	if($p){
 		importTweets($p);
-		importFavoritedTweets($p);
 	} else {
 		$q = $db->query("SELECT * FROM `".DTP."tweetusers` WHERE `enabled` = '1'");
 		if($db->numRows($q) > 0){

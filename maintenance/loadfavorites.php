@@ -1,6 +1,5 @@
 <?php
 
-	function importTweets($p){
 		global $twitterApi, $db, $config, $access, $search;
 		$p = trim($p);
 		if(!$twitterApi->validateUserParam($p)){ return false; }
@@ -33,16 +32,19 @@
 		if($total > 3200){ $total = 3200; } // Due to current Twitter limitation
 		$pages = ceil($total / $maxCount);
 		
-		echo l("Total tweets: <strong>" . $total . "</strong>, Approx. page total: <strong>" . $pages . "</strong>\n");
+		echo l("Total favorited tweets: <strong>" . $total . "</strong>, Approx. page total: <strong>" . $pages . "</strong>\n");
 		if($sinceID){
-			echo l("Newest tweet I've got: <strong>" . $sinceID . "</strong>\n");
+			echo l("Newest favorited tweet I've got: <strong>" . $sinceID . "</strong>\n");
 		}
 		
 		$page = 1;
-		// Retrieve favorited tweets
+		
+		// Retrieve favorites tweets
 		do {
 			// Determine path to Twitter timeline resource
-			$path = "1/favorites.json?" . $p . "&count=" . $maxCount . ($maxID ? "&max_id=" . $maxID : "");
+			$path =	"1/favorites.json?" . $p . "&count=" . $maxCount .
+					($sinceID ? "&since_id=" . $sinceID : "").($maxID ? "&max_id=" . $maxID : "");
+#		$path = "1/favorites.json?" . $p . "&count=" . $maxCount . "&since_id=" . $sinceID;
 			// Announce
 			echo l("Retrieving page <strong>#" . $page . "</strong>: <span class=\"address\">" . ls($path) . "</span>\n");
 			// Get data
@@ -57,9 +59,9 @@
 				foreach($data as $i => $tweet){
 					// Shield against duplicate tweet from max_id
 					if(!IS64BIT && $i == 0 && $maxID == $tweet->id_str){ unset($data[0]); continue; }
-					// List favorited tweet
+					// List tweet
 					echo l("<li>" . $tweet->id_str . " " . $tweet->created_at . "</li>\n");
-					// Create favorited tweet element and add to list
+					// Create tweet element and add to list
 					$tweets[] = $twitterApi->transformTweet($tweet);
 					// Determine new max_id
 					$maxID    = $tweet->id_str;
@@ -77,7 +79,7 @@
 			// Ascending sort, oldest first
 			$tweets = array_reverse($tweets);
 			echo l("<strong>All favorited tweets collected. Reconnecting to DB...</strong>\n");
-			$db->reconnect(); // Sometimes, DB connection times out during favorited tweet loading. This is our counter-action
+			$db->reconnect(); // Sometimes, DB connection times out during tweet loading. This is our counter-action
 			echo l("Inserting into DB...\n");
 			$error = false;
 			foreach($tweets as $tweet){
@@ -96,12 +98,13 @@
 				}
 				$search->index($db->insertID(), $text);
 			}
+
 			echo !$error ? l(good("Done!\n")) : "";
 		} else {
 			echo l(bad("Nothing to insert.\n"));
 		}
 
-		// Checking personal favorites -- scanning all
+		// Checking favorites -- scanning all
 		echo l("\n<strong>Syncing favourites...</strong>\n");
 		// Resetting these
 		$favs  = array(); $maxID = 0; $sinceID = 0; $page = 1;
@@ -115,7 +118,7 @@
 				echo l("<ul>");
 				foreach($data as $i => $tweet){
 					if(!IS64BIT && $i == 0 && $maxID == $tweet->id_str){ unset($data[0]); continue; }
-#					if($tweet->user->id_str == $uid){
+#					if($tweet->user->id_str != $uid){
 						echo l("<li>" . $tweet->id_str . " " . $tweet->created_at . "</li>\n");
 						$favs[] = $tweet->id_str;
 #					}
@@ -126,7 +129,7 @@
 				}
 				echo l("</ul>");
 			}
-			echo l("<strong>" . count($favs) . "</strong> favorite own tweets so far\n");
+			echo l("<strong>" . count($favs) . "</strong> favorited tweets so far\n");
 			$page++;
 		} while(!empty($data));
 		
@@ -135,6 +138,5 @@
 		// Insert favorites into DB
 		$db->query("UPDATE `".DTP."tweets` SET `favorite` = '1' WHERE `tweetid` IN ('" . implode("', '", $favs) . "')");
 		echo l(good("Updated favorites!"));
-	}
 
 ?>
