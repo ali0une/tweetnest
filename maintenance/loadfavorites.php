@@ -1,4 +1,43 @@
 <?php
+
+	function importTweets($p){
+		global $twitterApi, $db, $config, $access, $search;
+		$p = trim($p);
+		if(!$twitterApi->validateUserParam($p)){ return false; }
+		$maxCount = 200;
+		$tweets   = array();
+		$sinceID  = 0;
+		$maxID    = 0;
+		
+		echo l("Importing:\n");
+		
+		// Do we already have tweets?
+		$pd = $twitterApi->getUserParam($p);
+		if($pd['name'] == "screen_name"){
+			$uid        = $twitterApi->getUserId($pd['value']);
+			$screenname = $pd['value'];
+		} else {
+			$uid        = $pd['value'];
+			$screenname = $twitterApi->getScreenName($pd['value']);
+		}
+		$tiQ = $db->query("SELECT `tweetid` FROM `".DTP."tweets` WHERE `favorite` = '1' ORDER BY `id` DESC LIMIT 1");
+		if($db->numRows($tiQ) > 0){
+			$ti      = $db->fetch($tiQ);
+			$sinceID = $ti['tweetid'];
+		}
+		
+		echo l("User ID: " . $uid . "\n");
+		
+		// Find total number of tweets
+		$total = totalTweets($p);
+		if($total > 3200){ $total = 3200; } // Due to current Twitter limitation
+		$pages = ceil($total / $maxCount);
+		
+		echo l("Total tweets: <strong>" . $total . "</strong>, Approx. page total: <strong>" . $pages . "</strong>\n");
+		if($sinceID){
+			echo l("Newest tweet I've got: <strong>" . $sinceID . "</strong>\n");
+		}
+		
 		$page = 1;
 		// Retrieve favorited tweets
 		do {
@@ -61,5 +100,41 @@
 		} else {
 			echo l(bad("Nothing to insert.\n"));
 		}
+
+		// Checking personal favorites -- scanning all
+		echo l("\n<strong>Syncing favourites...</strong>\n");
+		// Resetting these
+		$favs  = array(); $maxID = 0; $sinceID = 0; $page = 1;
+		do {
+			$path = "1/favorites.json?" . $p . "&count=" . $maxCount . ($maxID ? "&max_id=" . $maxID : "");
+			echo l("Retrieving page <strong>#" . $page . "</strong>: <span class=\"address\">" . ls($path) . "</span>\n");
+			$data = $twitterApi->query($path);
+			if(is_array($data) && $data[0] === false){ dieout(l(bad("Error: " . $data[1] . "/" . $data[2]))); }
+			echo l("<strong>" . ($data ? count($data) : 0) . "</strong> total favorite tweets on this page\n");
+			if(!empty($data)){
+				echo l("<ul>");
+				foreach($data as $i => $tweet){
+					if(!IS64BIT && $i == 0 && $maxID == $tweet->id_str){ unset($data[0]); continue; }
+#					if($tweet->user->id_str == $uid){
+						echo l("<li>" . $tweet->id_str . " " . $tweet->created_at . "</li>\n");
+						$favs[] = $tweet->id_str;
+#					}
+					$maxID = $tweet->id_str;
+					if(IS64BIT){
+						$maxID = (int)$tweet->id - 1;
+					}
+				}
+				echo l("</ul>");
+			}
+			echo l("<strong>" . count($favs) . "</strong> favorite own tweets so far\n");
+			$page++;
+		} while(!empty($data));
+		
+		// Blank all favorites
+		$db->query("UPDATE `".DTP."tweets` SET `favorite` = '0'");
+		// Insert favorites into DB
+		$db->query("UPDATE `".DTP."tweets` SET `favorite` = '1' WHERE `tweetid` IN ('" . implode("', '", $favs) . "')");
+		echo l(good("Updated favorites!"));
+	}
 
 ?>
