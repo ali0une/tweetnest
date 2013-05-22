@@ -62,7 +62,7 @@
 		$sinceID  = 0;
 		$maxID    = 0;
 		
-		echo l("Importing:\n");
+		echo l("Importing tweets:\n");
 		
 		// Do we already have tweets?
 		$pd = $twitterApi->getUserParam($p);
@@ -156,6 +156,7 @@
 		} else {
 			echo l(bad("Nothing to insert.\n"));
 		}
+		//favorites
 		@include('./loadfavorites.php');
 
 	}

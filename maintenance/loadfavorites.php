@@ -8,7 +8,7 @@
 		$sinceID  = 0;
 		$maxID    = 0;
 		
-		echo l("Importing:\n");
+		echo l("Importing favorites :\n");
 		
 		// Do we already have tweets?
 		$pd = $twitterApi->getUserParam($p);
