@@ -42,7 +42,7 @@
 		// Retrieve favorites tweets
 		do {
 			// Determine path to Twitter timeline resource
-			$path =	"1/favorites.json?" . $p . "&count=" . $maxCount .
+			$path = "favorites/list.json?" . $p . "&count=" . $maxCount .
 					($sinceID ? "&since_id=" . $sinceID : "").($maxID ? "&max_id=" . $maxID : "");
 #		$path = "1/favorites.json?" . $p . "&count=" . $maxCount . "&since_id=" . $sinceID;
 			// Announce
@@ -109,7 +109,7 @@
 		// Resetting these
 		$favs  = array(); $maxID = 0; $sinceID = 0; $page = 1;
 		do {
-			$path = "1/favorites.json?" . $p . "&count=" . $maxCount . ($maxID ? "&max_id=" . $maxID : "");
+			$path = "favorites/list.json?" . $p . "&count=" . $maxCount . ($maxID ? "&max_id=" . $maxID : "");
 			echo l("Retrieving page <strong>#" . $page . "</strong>: <span class=\"address\">" . ls($path) . "</span>\n");
 			$data = $twitterApi->query($path);
 			if(is_array($data) && $data[0] === false){ dieout(l(bad("Error: " . $data[1] . "/" . $data[2]))); }
